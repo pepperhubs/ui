@@ -505,8 +505,9 @@ function Library:CreateWindow(config)
 				local frame = row(config.Text or "Toggle")
 				local toggle = button(frame, "")
 				toggle.Size, toggle.Position = UDim2.fromOffset(28, 28), UDim2.new(1, -38, 0.5, -14)
-				local toggleMark = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = value and UDim2.fromOffset(14, 14) or UDim2.fromOffset(5, 5), BackgroundColor3 = value and Library.Theme.Accent or Library.Theme.AccentDark, BorderSizePixel = 0, Active = false }, toggle)
-				corner(toggleMark, 3)
+				toggle.BackgroundColor3 = Library.Theme.Control
+				local toggleMark = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = value and UDim2.fromOffset(15, 15) or UDim2.fromOffset(8, 8), BackgroundColor3 = value and Library.Theme.Accent or Library.Theme.AccentDark, BorderSizePixel = 0, Active = false }, toggle)
+				corner(toggleMark, 4)
 				buttonFixedColor[toggle] = true
 				local toggleStroke = toggle:FindFirstChildOfClass("UIStroke")
 				local toggleGradient = toggleStroke and toggleStroke:FindFirstChildOfClass("UIGradient")
@@ -515,7 +516,7 @@ function Library:CreateWindow(config)
 					value = nextValue == true
 					toggle.Text = ""
 					setButtonRestColor(toggle, Library.Theme.Surface)
-					toggleMark.Size = value and UDim2.fromOffset(14, 14) or UDim2.fromOffset(5, 5)
+					toggleMark.Size = value and UDim2.fromOffset(15, 15) or UDim2.fromOffset(8, 8)
 					toggleMark.BackgroundColor3 = value and Library.Theme.Accent or Library.Theme.AccentDark
 					if toggleGradient then toggleGradient.Enabled = not value end
 					if toggleStroke then toggleStroke.Color = value and Library.Theme.Accent or Library.Theme.AccentDark end
@@ -597,9 +598,10 @@ function Library:CreateWindow(config)
 				rowLabel.Position, rowLabel.Size = UDim2.fromOffset(13, 0), UDim2.new(1, -145, 1, 0)
 				local multi, selected = config.Multi == true, {}
 				local select = button(frame, tostring(value or "Select"))
-				select.Size, select.Position = UDim2.fromOffset(118, 28), UDim2.new(1, -128, 0.5, -14)
-				select.TextXAlignment = Enum.TextXAlignment.Center
-				local arrow = new("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(14, 14), BackgroundTransparency = 1, BorderSizePixel = 0, Active = false }, select)
+				select.Size, select.Position = UDim2.fromOffset(132, 28), UDim2.new(1, -142, 0.5, -14)
+				select.TextXAlignment = Enum.TextXAlignment.Left
+				new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 25) }, select)
+				local arrow = new("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -9, 0.5, 0), Size = UDim2.fromOffset(16, 16), BackgroundTransparency = 1, BorderSizePixel = 0, Active = false }, select)
 				local arrowLeft = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.32, 0.5), Size = UDim2.fromOffset(8, 2), Rotation = 35, BackgroundColor3 = Library.Theme.Muted, BorderSizePixel = 0, Active = false }, arrow)
 				local arrowRight = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.68, 0.5), Size = UDim2.fromOffset(8, 2), Rotation = -35, BackgroundColor3 = Library.Theme.Muted, BorderSizePixel = 0, Active = false }, arrow)
 				local function setArrow(open) arrowLeft.Rotation, arrowRight.Rotation = open and -35 or 35, open and 35 or -35 end
