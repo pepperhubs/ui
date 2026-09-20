@@ -505,6 +505,8 @@ function Library:CreateWindow(config)
 				local frame = row(config.Text or "Toggle")
 				local toggle = button(frame, "")
 				toggle.Size, toggle.Position = UDim2.fromOffset(28, 28), UDim2.new(1, -38, 0.5, -14)
+				local toggleMark = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = value and UDim2.fromOffset(14, 14) or UDim2.fromOffset(5, 5), BackgroundColor3 = value and Library.Theme.Accent or Library.Theme.AccentDark, BorderSizePixel = 0, Active = false }, toggle)
+				corner(toggleMark, 3)
 				buttonFixedColor[toggle] = true
 				local toggleStroke = toggle:FindFirstChildOfClass("UIStroke")
 				local toggleGradient = toggleStroke and toggleStroke:FindFirstChildOfClass("UIGradient")
@@ -512,7 +514,9 @@ function Library:CreateWindow(config)
 				function object:Set(nextValue, silent)
 					value = nextValue == true
 					toggle.Text = ""
-					setButtonRestColor(toggle, value and Library.Theme.Accent or Library.Theme.AccentDark)
+					setButtonRestColor(toggle, Library.Theme.Surface)
+					toggleMark.Size = value and UDim2.fromOffset(14, 14) or UDim2.fromOffset(5, 5)
+					toggleMark.BackgroundColor3 = value and Library.Theme.Accent or Library.Theme.AccentDark
 					if toggleGradient then toggleGradient.Enabled = not value end
 					if toggleStroke then toggleStroke.Color = value and Library.Theme.Accent or Library.Theme.AccentDark end
 					if not silent and config.Callback then config.Callback(value) end
@@ -595,9 +599,10 @@ function Library:CreateWindow(config)
 				local select = button(frame, tostring(value or "Select"))
 				select.Size, select.Position = UDim2.fromOffset(118, 28), UDim2.new(1, -128, 0.5, -14)
 				select.TextXAlignment = Enum.TextXAlignment.Center
-				local arrow = text(select, "v", 12, Library.Theme.Muted, Enum.Font.GothamBold)
-				arrow.AnchorPoint, arrow.Position = Vector2.new(1, 0.5), UDim2.new(1, -9, 0.5, 0)
-				arrow.Size, arrow.TextXAlignment = UDim2.fromOffset(14, 20), Enum.TextXAlignment.Center
+				local arrow = new("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(14, 14), BackgroundTransparency = 1, BorderSizePixel = 0, Active = false }, select)
+				local arrowLeft = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.32, 0.5), Size = UDim2.fromOffset(8, 2), Rotation = 35, BackgroundColor3 = Library.Theme.Muted, BorderSizePixel = 0, Active = false }, arrow)
+				local arrowRight = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.68, 0.5), Size = UDim2.fromOffset(8, 2), Rotation = -35, BackgroundColor3 = Library.Theme.Muted, BorderSizePixel = 0, Active = false }, arrow)
+				local function setArrow(open) arrowLeft.Rotation, arrowRight.Rotation = open and -35 or 35, open and 35 or -35 end
 				local list = new("Frame", { Visible = false, Position = UDim2.fromOffset(0, 48), Size = UDim2.new(1, 0, 0, #options * 31 + 6), BackgroundColor3 = Library.Theme.Background, BorderSizePixel = 0, ZIndex = 20 }, holder)
 				corner(list, 8); outline(list)
 				new("UIListLayout", { Padding = UDim.new(0, 2), HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center }, list)
@@ -650,7 +655,7 @@ function Library:CreateWindow(config)
 						choiceButtons[option] = choice
 						clicked(choice, function()
 							setValue(option, true)
-							if not multi then list.Visible = false; arrow.Text = "v"; holder.Size = UDim2.new(1, 0, 0, 42) end
+							if not multi then list.Visible = false; setArrow(false); holder.Size = UDim2.new(1, 0, 0, 42) end
 						end)
 					end
 					list.Size = UDim2.new(1, 0, 0, #options * 31 + 6)
@@ -660,7 +665,7 @@ function Library:CreateWindow(config)
 				rebuildOptions(options)
 				clicked(select, function()
 					list.Visible = not list.Visible
-					arrow.Text = list.Visible and "^" or "v"
+					setArrow(list.Visible)
 					holder.ZIndex = list.Visible and 30 or 10
 					holder.Size = UDim2.new(1, 0, 0, list.Visible and (#options * 31 + 52) or 42)
 				end)
