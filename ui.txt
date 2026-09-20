@@ -503,18 +503,18 @@ function Library:CreateWindow(config)
 				local config = type(idOrConfig) == "table" and idOrConfig or suppliedConfig or {}
 				local value = config.Default == true
 				local frame = row(config.Text or "Toggle")
-				local toggle = button(frame, value and (config.OnText or "ON") or (config.OffText or "OFF"))
-				toggle.Size, toggle.Position = UDim2.fromOffset(60, 28), UDim2.new(1, -70, 0.5, -14)
+				local toggle = button(frame, "")
+				toggle.Size, toggle.Position = UDim2.fromOffset(28, 28), UDim2.new(1, -38, 0.5, -14)
 				buttonFixedColor[toggle] = true
 				local toggleStroke = toggle:FindFirstChildOfClass("UIStroke")
 				local toggleGradient = toggleStroke and toggleStroke:FindFirstChildOfClass("UIGradient")
 				local object = {}
 				function object:Set(nextValue, silent)
 					value = nextValue == true
-					toggle.Text = value and (config.OnText or "ON") or (config.OffText or "OFF")
-					setButtonRestColor(toggle, value and Library.Theme.Enabled or Library.Theme.AccentDark)
+					toggle.Text = ""
+					setButtonRestColor(toggle, value and Library.Theme.Accent or Library.Theme.AccentDark)
 					if toggleGradient then toggleGradient.Enabled = not value end
-					if toggleStroke then toggleStroke.Color = value and Library.Theme.Enabled or Library.Theme.Accent end
+					if toggleStroke then toggleStroke.Color = value and Library.Theme.Accent or Library.Theme.AccentDark end
 					if not silent and config.Callback then config.Callback(value) end
 				end
 				function object:Get() return value end
@@ -595,7 +595,7 @@ function Library:CreateWindow(config)
 				local select = button(frame, tostring(value or "Select"))
 				select.Size, select.Position = UDim2.fromOffset(118, 28), UDim2.new(1, -128, 0.5, -14)
 				select.TextXAlignment = Enum.TextXAlignment.Center
-				local arrow = text(select, "▾", 14, Library.Theme.Muted, Enum.Font.GothamBold)
+				local arrow = text(select, "v", 12, Library.Theme.Muted, Enum.Font.GothamBold)
 				arrow.AnchorPoint, arrow.Position = Vector2.new(1, 0.5), UDim2.new(1, -9, 0.5, 0)
 				arrow.Size, arrow.TextXAlignment = UDim2.fromOffset(14, 20), Enum.TextXAlignment.Center
 				local list = new("Frame", { Visible = false, Position = UDim2.fromOffset(0, 48), Size = UDim2.new(1, 0, 0, #options * 31 + 6), BackgroundColor3 = Library.Theme.Background, BorderSizePixel = 0, ZIndex = 20 }, holder)
@@ -650,7 +650,7 @@ function Library:CreateWindow(config)
 						choiceButtons[option] = choice
 						clicked(choice, function()
 							setValue(option, true)
-							if not multi then list.Visible = false; arrow.Text = "▾"; holder.Size = UDim2.new(1, 0, 0, 42) end
+							if not multi then list.Visible = false; arrow.Text = "v"; holder.Size = UDim2.new(1, 0, 0, 42) end
 						end)
 					end
 					list.Size = UDim2.new(1, 0, 0, #options * 31 + 6)
@@ -660,7 +660,7 @@ function Library:CreateWindow(config)
 				rebuildOptions(options)
 				clicked(select, function()
 					list.Visible = not list.Visible
-					arrow.Text = list.Visible and "▴" or "▾"
+					arrow.Text = list.Visible and "^" or "v"
 					holder.ZIndex = list.Visible and 30 or 10
 					holder.Size = UDim2.new(1, 0, 0, list.Visible and (#options * 31 + 52) or 42)
 				end)
