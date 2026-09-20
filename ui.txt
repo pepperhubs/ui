@@ -471,7 +471,11 @@ function Library:CreateWindow(config)
 		new("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, page)
 		tab.Page = page
 		self.Tabs[name] = tab
-		clicked(tabButton, function() self:SelectTab(tab) end)
+		tabButton.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				self:SelectTab(tab)
+			end
+		end)
 
 		function tab:AddSection(sectionName)
 			local section = { Name = sectionName }
@@ -588,11 +592,13 @@ function Library:CreateWindow(config)
 				rowLabel.Position, rowLabel.Size = UDim2.fromOffset(13, 0), UDim2.new(1, -145, 1, 0)
 				local multi, selected = config.Multi == true, {}
 				local select = button(frame, tostring(value or "Select"))
-				select.Size, select.Position = UDim2.fromOffset(118, 28), UDim2.new(1, -128, 0.5, -14)
-				select.TextXAlignment = Enum.TextXAlignment.Center
-				local arrow = text(select, "v", 12, Library.Theme.Muted, Enum.Font.GothamBold)
-				arrow.AnchorPoint, arrow.Position = Vector2.new(1, 0.5), UDim2.new(1, -9, 0.5, 0)
-				arrow.Size, arrow.TextXAlignment = UDim2.fromOffset(14, 20), Enum.TextXAlignment.Center
+				select.Size, select.Position = UDim2.fromOffset(132, 28), UDim2.new(1, -142, 0.5, -14)
+				select.TextXAlignment = Enum.TextXAlignment.Left
+				new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 25) }, select)
+				local arrow = new("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -9, 0.5, 0), Size = UDim2.fromOffset(16, 16), BackgroundTransparency = 1, BorderSizePixel = 0, Active = false }, select)
+				local arrowLeft = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.32, 0.5), Size = UDim2.fromOffset(8, 2), Rotation = 35, BackgroundColor3 = Library.Theme.Muted, BorderSizePixel = 0, Active = false }, arrow)
+				local arrowRight = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.68, 0.5), Size = UDim2.fromOffset(8, 2), Rotation = -35, BackgroundColor3 = Library.Theme.Muted, BorderSizePixel = 0, Active = false }, arrow)
+				local function setArrow(open) arrowLeft.Rotation, arrowRight.Rotation = open and -35 or 35, open and 35 or -35 end
 				local list = new("Frame", { Visible = false, Position = UDim2.fromOffset(0, 48), Size = UDim2.new(1, 0, 0, #options * 31 + 6), BackgroundColor3 = Library.Theme.Background, BorderSizePixel = 0 }, holder)
 				corner(list, 8); outline(list)
 				new("UIListLayout", { Padding = UDim.new(0, 2), HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center }, list)
@@ -639,12 +645,12 @@ function Library:CreateWindow(config)
 					choiceButtons[option] = choice
 					clicked(choice, function()
 						setValue(option, true)
-						if not multi then list.Visible = false; arrow.Text = "v"; holder.Size = UDim2.new(1, 0, 0, 42) end
+						if not multi then list.Visible = false; setArrow(false); holder.Size = UDim2.new(1, 0, 0, 42) end
 					end)
 				end
 				clicked(select, function()
 					list.Visible = not list.Visible
-					arrow.Text = list.Visible and "^" or "v"
+					setArrow(list.Visible)
 					holder.Size = UDim2.new(1, 0, 0, list.Visible and (#options * 31 + 52) or 42)
 				end)
 				local object = {}
