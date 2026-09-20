@@ -503,7 +503,7 @@ function Library:CreateWindow(config)
 				local config = type(idOrConfig) == "table" and idOrConfig or suppliedConfig or {}
 				local value = config.Default == true
 				local frame = row(config.Text or "Toggle")
-				local toggle = button(frame, "")
+				local toggle = button(frame, value and "ON" or "OFF")
 				toggle.Size, toggle.Position = UDim2.fromOffset(60, 28), UDim2.new(1, -70, 0.5, -14)
 				buttonFixedColor[toggle] = true
 				local toggleStroke = toggle:FindFirstChildOfClass("UIStroke")
@@ -511,7 +511,7 @@ function Library:CreateWindow(config)
 				local object = {}
 				function object:Set(nextValue, silent)
 					value = nextValue == true
-					toggle.Text = ""
+					toggle.Text = value and "ON" or "OFF"
 					setButtonRestColor(toggle, value and Library.Theme.Enabled or Library.Theme.AccentDark)
 					if toggleGradient then toggleGradient.Enabled = not value end
 					if toggleStroke then toggleStroke.Color = value and Library.Theme.Enabled or Library.Theme.Accent end
