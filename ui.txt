@@ -495,6 +495,7 @@ function Library:CreateWindow(config)
 				corner(rowFrame, 8); outline(rowFrame, Library.Theme.Outline)
 				local rowLabel = text(rowFrame, labelText, 13, Library.Theme.Text, Enum.Font.GothamMedium)
 				rowLabel.Position, rowLabel.Size = UDim2.fromOffset(13, 0), UDim2.new(1, -145, 1, 0)
+				rowLabel.TextTruncate = Enum.TextTruncate.AtEnd
 				return rowFrame, rowLabel
 			end
 
@@ -592,12 +593,13 @@ function Library:CreateWindow(config)
 				rowLabel.Position, rowLabel.Size = UDim2.fromOffset(13, 0), UDim2.new(1, -145, 1, 0)
 				local multi, selected = config.Multi == true, {}
 				local select = button(frame, tostring(value or "Select"))
-				select.Size, select.Position = UDim2.fromOffset(132, 28), UDim2.new(1, -142, 0.5, -14)
+				select.Size, select.Position = UDim2.fromOffset(120, 28), UDim2.new(1, -130, 0.5, -14)
 				select.TextXAlignment = Enum.TextXAlignment.Left
-				new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 25) }, select)
-				local arrow = new("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -9, 0.5, 0), Size = UDim2.fromOffset(16, 16), BackgroundTransparency = 1, BorderSizePixel = 0, Active = false }, select)
-				local arrowLeft = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.32, 0.5), Size = UDim2.fromOffset(8, 2), Rotation = 35, BackgroundColor3 = Library.Theme.Muted, BorderSizePixel = 0, Active = false }, arrow)
-				local arrowRight = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.68, 0.5), Size = UDim2.fromOffset(8, 2), Rotation = -35, BackgroundColor3 = Library.Theme.Muted, BorderSizePixel = 0, Active = false }, arrow)
+				select.TextTruncate = Enum.TextTruncate.AtEnd
+				new("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 18) }, select)
+				local arrow = new("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -7, 0.5, 0), Size = UDim2.fromOffset(12, 12), BackgroundTransparency = 1, BorderSizePixel = 0, Active = false }, select)
+				local arrowLeft = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.32, 0.5), Size = UDim2.fromOffset(7, 2), Rotation = 35, BackgroundColor3 = Library.Theme.Muted, BorderSizePixel = 0, Active = false }, arrow)
+				local arrowRight = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.68, 0.5), Size = UDim2.fromOffset(7, 2), Rotation = -35, BackgroundColor3 = Library.Theme.Muted, BorderSizePixel = 0, Active = false }, arrow)
 				local function setArrow(open) arrowLeft.Rotation, arrowRight.Rotation = open and -35 or 35, open and 35 or -35 end
 				local list = new("Frame", { Visible = false, Position = UDim2.fromOffset(0, 48), Size = UDim2.new(1, 0, 0, #options * 31 + 6), BackgroundColor3 = Library.Theme.Background, BorderSizePixel = 0 }, holder)
 				corner(list, 8); outline(list)
