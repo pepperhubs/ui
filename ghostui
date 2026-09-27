@@ -914,22 +914,12 @@ function Tab:Toggle(opts)
         Parent = pill,
     })
 
-    -- Gloss on the switch, and an accent strip on the card's left edge while the toggle is on.
+    -- Gloss on the switch.
     create("UIGradient", {
         Rotation = 90,
         Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(200, 190, 196)),
         Parent = pill,
     })
-    local strip = create("Frame", {
-        AnchorPoint = Vector2.new(0, 0.5),
-        Position = UDim2.new(0, 0, 0.5, 0),
-        Size = UDim2.new(0, 3, 0.56, 0),
-        BackgroundColor3 = Theme.Accent,
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Parent = button,
-    })
-    corner(strip, UDim.new(1, 0))
 
     local self_ = { Value = opts.Default == true }
 
@@ -938,7 +928,6 @@ function Tab:Toggle(opts)
         local duration = animate and 0.25 or 0
         tween(pill, { BackgroundColor3 = on and Theme.Accent or Theme.Surface3 }, duration)
         tween(pillGlow, { ImageTransparency = on and 0.75 or 1 }, duration)
-        tween(strip, { BackgroundTransparency = on and 0 or 1 }, duration)
         local knobSize = TOUCH and 18 or 14
         tween(knob, {
             Position = on and UDim2.new(0, (TOUCH and 44 or 36) - 3 - knobSize, 0.5, 0) or UDim2.new(0, 3, 0.5, 0),
@@ -3313,34 +3302,45 @@ function Window:_createOpenButton(opts)
         Parent = gui,
     })
     corner(button, UDim.new(1, 0))
-    create("UIGradient", {
-        Rotation = 90,
-        -- Near-black face with just a hint of light at the top.
-        Color = ColorSequence.new(Color3.fromRGB(22, 19, 22), Color3.fromRGB(6, 5, 7)),
-        Parent = button,
-    })
+    -- Solid black face; all the color lives around it.
+    button.BackgroundColor3 = Color3.new(0, 0, 0)
+    -- Two vivid red halos: a wide soft one and a tight bright one, breathing and shifting hue.
     local halo = create("ImageLabel", {
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromScale(2, 2),
+        Size = UDim2.fromScale(2.3, 2.3),
         BackgroundTransparency = 1,
         Image = Assets.Glow,
-        ImageColor3 = Theme.Accent,
-        ImageTransparency = 0.6,
+        ImageColor3 = Color3.fromRGB(255, 30, 50),
+        ImageTransparency = 0.35,
+        ZIndex = 28,
+        Parent = button,
+    })
+    local innerHalo = create("ImageLabel", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromScale(1.55, 1.55),
+        BackgroundTransparency = 1,
+        Image = Assets.Glow,
+        ImageColor3 = Color3.fromRGB(255, 70, 70),
+        ImageTransparency = 0.25,
         ZIndex = 29,
         Parent = button,
     })
     local ring = create("UIStroke", {
-        Thickness = 2.5,
+        Thickness = 3,
         Color = Color3.new(1, 1, 1),
         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
         Parent = button,
     })
+    -- A bright red comet chasing around the ring.
     local ringGradient = create("UIGradient", {
         Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Theme.AccentDark),
-            ColorSequenceKeypoint.new(0.5, Theme.Accent),
-            ColorSequenceKeypoint.new(1, Theme.AccentDark),
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(90, 0, 10)),
+            ColorSequenceKeypoint.new(0.35, Color3.fromRGB(255, 25, 50)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 170, 160)),
+            ColorSequenceKeypoint.new(0.65, Color3.fromRGB(255, 25, 50)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(90, 0, 10)),
         }),
         Parent = ring,
     })
@@ -3349,7 +3349,7 @@ function Window:_createOpenButton(opts)
         Position = UDim2.fromScale(0.5, 0.5),
         Size = UDim2.fromScale(0.56, 0.56),
         BackgroundTransparency = 1,
-        ImageColor3 = Theme.Accent,
+        ImageColor3 = Color3.fromRGB(255, 55, 75),
         ScaleType = Enum.ScaleType.Fit,
         ZIndex = 31,
         Parent = button,
@@ -3362,8 +3362,15 @@ function Window:_createOpenButton(opts)
     local clock = 0
     table.insert(self._frameSteps, function(deltaTime)
         clock += deltaTime
-        ringGradient.Rotation = (ringGradient.Rotation + deltaTime * (self.Open and 220 or 70)) % 360
-        halo.ImageTransparency = (self.Open and 0.55 or 0.72) + math.sin(clock * 2.2) * 0.06
+        ringGradient.Rotation = (ringGradient.Rotation + deltaTime * (self.Open and 260 or 110)) % 360
+        -- Halos breathe (stronger while open) and drift between crimson and a hot orange-red.
+        local pulse = (math.sin(clock * 2.4) + 1) / 2
+        local shift = (math.sin(clock * 0.9) + 1) / 2
+        halo.ImageTransparency = (self.Open and 0.25 or 0.4) + pulse * 0.15
+        innerHalo.ImageTransparency = (self.Open and 0.15 or 0.3) + (1 - pulse) * 0.15
+        halo.ImageColor3 = Color3.fromRGB(255, 20, 45):Lerp(Color3.fromRGB(255, 75, 35), shift)
+        innerHalo.ImageColor3 = Color3.fromRGB(255, 60, 80):Lerp(Color3.fromRGB(255, 110, 70), 1 - shift)
+        icon.ImageColor3 = Color3.fromRGB(255, 45, 70):Lerp(Color3.fromRGB(255, 120, 110), pulse * 0.5)
         icon.Position = UDim2.new(0.5, 0, 0.5, math.sin(clock * 1.8) * 2)
     end)
 
@@ -4221,20 +4228,6 @@ function Window:Tab(opts, icon)
         Parent = self.Content,
     })
     tab._page = page
-    -- Page title with an accent bar beside it.
-    local titleBar = create("Frame", {
-        Position = UDim2.fromOffset(12, 23),
-        Size = UDim2.fromOffset(4, 19),
-        BackgroundColor3 = Color3.new(1, 1, 1),
-        BorderSizePixel = 0,
-        Parent = page,
-    })
-    corner(titleBar, UDim.new(1, 0))
-    create("UIGradient", {
-        Rotation = 90,
-        Color = ColorSequence.new(Theme.Accent:Lerp(Color3.new(1, 1, 1), 0.25), Theme.Accent:Lerp(Theme.AccentDark, 0.4)),
-        Parent = titleBar,
-    })
     label({
         Position = UDim2.fromOffset(24, 20),
         Size = UDim2.new(1, -72, 0, 24),
