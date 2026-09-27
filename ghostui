@@ -5053,9 +5053,18 @@ function Tab:AssetFilter(opts)
         table.clear(rows)
     end
 
+    -- Rows are built in small batches across frames (a big list built in one frame froze the client);
+    -- a newer build cancels an older one still in progress.
+    local buildToken = 0
+    local ROWS_PER_FRAME = 16
     local function buildRows()
         clearRows()
+        buildToken += 1
+        local token = buildToken
+        updateSummary()
+        task.spawn(function()
         for index, item in ipairs(items) do
+            if token ~= buildToken then return end
             local id = item.Id or item.Name or tostring(index)
             local rowFrame = create("TextButton", {
                 Size = UDim2.new(1, -4, 0, TOUCH and 74 or 68),
@@ -5156,9 +5165,18 @@ function Tab:AssetFilter(opts)
                 updateSummary()
                 safeCall(opts.Callback, id, selected[id])
             end)
+            -- Respect the current search on rows that appear while typing.
+            local query = string.lower(search.Text)
+            rowFrame.Visible = query == "" or string.find(row.SearchText, query, 1, true) ~= nil
+            if index % ROWS_PER_FRAME == 0 then
+                task.wait()
+            end
         end
-        updateSummary()
-        applySearch()
+        if token == buildToken then
+            updateSummary()
+            applySearch()
+        end
+        end)
     end
 
     search:GetPropertyChangedSignal("Text"):Connect(applySearch)
@@ -5172,6 +5190,13 @@ function Tab:AssetFilter(opts)
         Refresh = function(_, newItems)
             items = type(newItems) == "table" and newItems or {}
             buildRows()
+        end,
+        -- Re-paints the existing rows from the Selected table (bulk select/clear) without rebuilding them.
+        Render = function()
+            for _, row in ipairs(rows) do
+                renderRow(row)
+            end
+            updateSummary()
         end,
         Get = function()
             return selected
