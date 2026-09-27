@@ -3287,21 +3287,21 @@ end
 function Window:_createOpenButton(opts)
     local gui = self.Gui
     local size = TOUCH and 60 or 54
+    -- The button itself is invisible: it only takes the clicks / drags. Inside, the halos come first and the black
+    -- face after them, so the glow stays BEHIND the face (a child always draws over its parent, so the halos
+    -- cannot be children of the face).
     local button = create("TextButton", {
         Name = "OpenButton",
         AnchorPoint = Vector2.new(0, 0.5),
         Position = UDim2.new(0, 18, 0.5, -60),
         Size = UDim2.fromOffset(size, size),
-        BackgroundColor3 = Color3.new(1, 1, 1),
+        BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Text = "",
         AutoButtonColor = false,
         ZIndex = 30,
         Parent = gui,
     })
-    corner(button, UDim.new(1, 0))
-    -- Solid black face; all the color lives around it.
-    button.BackgroundColor3 = Color3.new(0, 0, 0)
     -- Two vivid red halos: a wide soft one and a tight bright one, breathing and shifting hue.
     local halo = create("ImageLabel", {
         AnchorPoint = Vector2.new(0.5, 0.5),
@@ -3325,11 +3325,20 @@ function Window:_createOpenButton(opts)
         ZIndex = 29,
         Parent = button,
     })
+    -- The black face, drawn over the halos; the ring and the logo live on it.
+    local face = create("Frame", {
+        Size = UDim2.fromScale(1, 1),
+        BackgroundColor3 = Color3.new(0, 0, 0),
+        BorderSizePixel = 0,
+        ZIndex = 30,
+        Parent = button,
+    })
+    corner(face, UDim.new(1, 0))
     local ring = create("UIStroke", {
         Thickness = 3,
         Color = Color3.new(1, 1, 1),
         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-        Parent = button,
+        Parent = face,
     })
     -- A bright red comet chasing around the ring.
     local ringGradient = create("UIGradient", {
@@ -3350,7 +3359,7 @@ function Window:_createOpenButton(opts)
         ImageColor3 = Color3.fromRGB(255, 55, 75),
         ScaleType = Enum.ScaleType.Fit,
         ZIndex = 31,
-        Parent = button,
+        Parent = face,
     })
     applyIcon(icon, opts.Icon or Assets.Logo)
     local buttonScale = create("UIScale", { Parent = button })
