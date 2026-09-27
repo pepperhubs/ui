@@ -914,6 +914,23 @@ function Tab:Toggle(opts)
         Parent = pill,
     })
 
+    -- Gloss on the switch, and an accent strip on the card's left edge while the toggle is on.
+    create("UIGradient", {
+        Rotation = 90,
+        Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(200, 190, 196)),
+        Parent = pill,
+    })
+    local strip = create("Frame", {
+        AnchorPoint = Vector2.new(0, 0.5),
+        Position = UDim2.new(0, 0, 0.5, 0),
+        Size = UDim2.new(0, 3, 0.56, 0),
+        BackgroundColor3 = Theme.Accent,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Parent = button,
+    })
+    corner(strip, UDim.new(1, 0))
+
     local self_ = { Value = opts.Default == true }
 
     local function render(animate)
@@ -921,6 +938,7 @@ function Tab:Toggle(opts)
         local duration = animate and 0.25 or 0
         tween(pill, { BackgroundColor3 = on and Theme.Accent or Theme.Surface3 }, duration)
         tween(pillGlow, { ImageTransparency = on and 0.75 or 1 }, duration)
+        tween(strip, { BackgroundTransparency = on and 0 or 1 }, duration)
         local knobSize = TOUCH and 18 or 14
         tween(knob, {
             Position = on and UDim2.new(0, (TOUCH and 44 or 36) - 3 - knobSize, 0.5, 0) or UDim2.new(0, 3, 0.5, 0),
@@ -3297,7 +3315,8 @@ function Window:_createOpenButton(opts)
     corner(button, UDim.new(1, 0))
     create("UIGradient", {
         Rotation = 90,
-        Color = ColorSequence.new(Theme.Surface3, Theme.Background),
+        -- Near-black face with just a hint of light at the top.
+        Color = ColorSequence.new(Color3.fromRGB(22, 19, 22), Color3.fromRGB(6, 5, 7)),
         Parent = button,
     })
     local halo = create("ImageLabel", {
@@ -3344,7 +3363,7 @@ function Window:_createOpenButton(opts)
     table.insert(self._frameSteps, function(deltaTime)
         clock += deltaTime
         ringGradient.Rotation = (ringGradient.Rotation + deltaTime * (self.Open and 220 or 70)) % 360
-        halo.ImageTransparency = (self.Open and 0.45 or 0.62) + math.sin(clock * 2.2) * 0.08
+        halo.ImageTransparency = (self.Open and 0.55 or 0.72) + math.sin(clock * 2.2) * 0.06
         icon.Position = UDim2.new(0.5, 0, 0.5, math.sin(clock * 1.8) * 2)
     end)
 
@@ -4202,6 +4221,20 @@ function Window:Tab(opts, icon)
         Parent = self.Content,
     })
     tab._page = page
+    -- Page title with an accent bar beside it.
+    local titleBar = create("Frame", {
+        Position = UDim2.fromOffset(12, 23),
+        Size = UDim2.fromOffset(4, 19),
+        BackgroundColor3 = Color3.new(1, 1, 1),
+        BorderSizePixel = 0,
+        Parent = page,
+    })
+    corner(titleBar, UDim.new(1, 0))
+    create("UIGradient", {
+        Rotation = 90,
+        Color = ColorSequence.new(Theme.Accent:Lerp(Color3.new(1, 1, 1), 0.25), Theme.Accent:Lerp(Theme.AccentDark, 0.4)),
+        Parent = titleBar,
+    })
     label({
         Position = UDim2.fromOffset(24, 20),
         Size = UDim2.new(1, -72, 0, 24),
