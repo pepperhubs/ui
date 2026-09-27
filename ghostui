@@ -2632,8 +2632,6 @@ function Library.Window(_, opts)
         Parent = header,
     })
     applyIcon(logo, opts.Icon or Assets.Logo)
-    -- Soft glow behind the logo.
-    glow(header, UDim2.fromOffset(96, 96), UDim2.fromOffset(37, 41), 0.72, 90)
     label({
         Position = UDim2.fromOffset(60, 25),
         Size = UDim2.new(1, -70, 0, 20),
