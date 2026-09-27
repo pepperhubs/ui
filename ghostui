@@ -5007,15 +5007,13 @@ function Tab:AssetFilter(opts)
         ScrollBarThickness = 2,
         ScrollBarImageColor3 = Theme.Accent,
         ScrollBarImageTransparency = 0.35,
-        AutomaticCanvasSize = Enum.AutomaticSize.Y,
         CanvasSize = UDim2.new(),
         Parent = frame,
     })
-    create("UIListLayout", {
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 6),
-        Parent = list,
-    })
+    -- Virtualized list: rows are positioned by hand (no UIListLayout) and only the ones near the viewport
+    -- are Visible, so opening the tab lays out and measures a screenful of cards instead of hundreds.
+    local ROW_HEIGHT = TOUCH and 74 or 68
+    local ROW_STRIDE = ROW_HEIGHT + 6
 
     local function updateSummary()
         local count = 0
@@ -5039,11 +5037,27 @@ function Tab:AssetFilter(opts)
         row.Stroke.Transparency = enabled and 0.25 or 0
     end
 
-    local function applySearch()
+    local refreshVisible
+
+    -- Stacks the rows matching the search and sizes the canvas; visibility is left to refreshVisible.
+    local function layoutRows()
         local query = string.lower(search.Text)
+        local y = 0
         for _, row in ipairs(rows) do
-            row.Frame.Visible = query == "" or string.find(row.SearchText, query, 1, true) ~= nil
+            row.Match = query == "" or string.find(row.SearchText, query, 1, true) ~= nil
+            if row.Match then
+                row.Y = y
+                row.Frame.Position = UDim2.fromOffset(0, y)
+                y += ROW_STRIDE
+            end
         end
+        list.CanvasSize = UDim2.fromOffset(0, y)
+        refreshVisible()
+    end
+
+    local function applySearch()
+        list.CanvasPosition = Vector2.zero
+        layoutRows()
     end
 
     local function clearRows()
@@ -5052,6 +5066,41 @@ function Tab:AssetFilter(opts)
         end
         table.clear(rows)
     end
+
+    -- Only rows inside (or one screen around) the scroll viewport get their icon and text effects.
+    -- Icons stay once loaded; effects toggle off again when a row scrolls away.
+    local visibleQueued = false
+    function refreshVisible()
+        visibleQueued = false
+        local height = list.AbsoluteSize.Y
+        local scroll = list.CanvasPosition.Y
+        -- Not laid out yet (no size): nothing is shown until it has one.
+        local open = height > 0 and list.Visible
+        for _, row in ipairs(rows) do
+            local near = open and row.Match and row.Y + ROW_STRIDE > scroll - height and row.Y < scroll + height * 2
+            if row.Frame.Visible ~= near then
+                row.Frame.Visible = near
+            end
+            if near and row.IconLabel.Image == "" then
+                row.IconLabel.Image = row.IconAsset
+            end
+            if near ~= row.Shown then
+                row.Shown = near
+                for _, effect in ipairs(row.Effects) do
+                    effect.Enabled = near
+                end
+            end
+        end
+    end
+    local function queueVisible()
+        if not visibleQueued then
+            visibleQueued = true
+            task.defer(refreshVisible)
+        end
+    end
+    list:GetPropertyChangedSignal("CanvasPosition"):Connect(queueVisible)
+    list:GetPropertyChangedSignal("AbsoluteSize"):Connect(queueVisible)
+    list:GetPropertyChangedSignal("AbsolutePosition"):Connect(queueVisible)
 
     -- Rows are built in small batches across frames (a big list built in one frame froze the client);
     -- a newer build cancels an older one still in progress.
@@ -5067,12 +5116,12 @@ function Tab:AssetFilter(opts)
             if token ~= buildToken then return end
             local id = item.Id or item.Name or tostring(index)
             local rowFrame = create("TextButton", {
-                Size = UDim2.new(1, -4, 0, TOUCH and 74 or 68),
+                Size = UDim2.new(1, -4, 0, ROW_HEIGHT),
                 BackgroundColor3 = Theme.Surface,
                 BorderSizePixel = 0,
                 Text = "",
                 AutoButtonColor = false,
-                LayoutOrder = index,
+                Visible = false,
                 Parent = list,
             })
             corner(rowFrame, UDim.new(0, 6))
@@ -5092,10 +5141,11 @@ function Tab:AssetFilter(opts)
                 Parent = rowFrame,
             })
             corner(previewHolder, UDim.new(0, 6))
-            create("ImageLabel", {
+            -- Icon is assigned lazily by refreshVisible (only rows on / near screen download textures).
+            local iconLabel = create("ImageLabel", {
                 Size = UDim2.fromScale(1, 1),
                 BackgroundTransparency = 1,
-                Image = imageAsset(item.Icon),
+                Image = "",
                 ScaleType = Enum.ScaleType.Fit,
                 Parent = previewHolder,
             })
@@ -5122,14 +5172,21 @@ function Tab:AssetFilter(opts)
             })
             -- Optional per-item text styling (e.g. a game's rarity look): a UIGradient and/or UIStroke to copy
             -- onto the label. Gradients tint the text color, so the label goes white to show them true.
+            -- Copies start disabled; refreshVisible only turns them on for rows on screen.
+            local effects = {}
             local function styleText(target, gradient, strokeSource)
                 if typeof(gradient) == "Instance" and gradient:IsA("UIGradient") then
                     local copy = gradient:Clone()
+                    copy.Enabled = false
                     copy.Parent = target
                     target.TextColor3 = Color3.new(1, 1, 1)
+                    table.insert(effects, copy)
                 end
                 if typeof(strokeSource) == "Instance" and strokeSource:IsA("UIStroke") then
-                    strokeSource:Clone().Parent = target
+                    local copy = strokeSource:Clone()
+                    copy.Enabled = false
+                    copy.Parent = target
+                    table.insert(effects, copy)
                 end
             end
             pcall(styleText, nameLabel, item.NameGradient, item.NameStroke)
@@ -5154,6 +5211,12 @@ function Tab:AssetFilter(opts)
                 Frame = rowFrame,
                 State = state,
                 Stroke = rowStroke,
+                IconLabel = iconLabel,
+                IconAsset = imageAsset(item.Icon),
+                Effects = effects,
+                Shown = false,
+                Match = false,
+                Y = 0,
                 SearchText = string.lower(tostring(item.Name or id) .. " " .. tostring(id)),
             }
             table.insert(rows, row)
@@ -5165,16 +5228,14 @@ function Tab:AssetFilter(opts)
                 updateSummary()
                 safeCall(opts.Callback, id, selected[id])
             end)
-            -- Respect the current search on rows that appear while typing.
-            local query = string.lower(search.Text)
-            rowFrame.Visible = query == "" or string.find(row.SearchText, query, 1, true) ~= nil
             if index % ROWS_PER_FRAME == 0 then
+                layoutRows()
                 task.wait()
             end
         end
         if token == buildToken then
             updateSummary()
-            applySearch()
+            layoutRows()
         end
         end)
     end
@@ -5294,17 +5355,24 @@ end
 
 function Tab:AddAssetLogItem(item)
     item = type(item) == "table" and item or {}
-    local height = TOUCH and 92 or 86
+    local height = TOUCH and 84 or 80
     local row, rowStroke = card(self, "Frame", height, {})
     row.ClipsDescendants = true
     rowStroke.Color = typeof(item.RarityColor) == "Color3" and item.RarityColor or Theme.Stroke
 
-    create("Frame", {
-        Size = UDim2.fromOffset(3, height),
-        BackgroundColor3 = typeof(item.RarityColor) == "Color3" and item.RarityColor or Theme.Accent,
-        BorderSizePixel = 0,
-        Parent = row,
-    })
+    -- Mini gradient: a soft rarity tint on the left fading into the card color (background only, not the text).
+    if typeof(item.RarityColor) == "Color3" then
+        row.BackgroundColor3 = Color3.new(1, 1, 1)
+        create("UIGradient", {
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Theme.Surface2:Lerp(item.RarityColor, 0.28)),
+                ColorSequenceKeypoint.new(0.45, Theme.Surface2:Lerp(item.RarityColor, 0.08)),
+                ColorSequenceKeypoint.new(1, Theme.Surface2),
+            }),
+            Parent = row,
+        })
+    end
+
     local previewHolder = create("Frame", {
         Position = UDim2.fromOffset(10, 10),
         Size = UDim2.fromOffset(TOUCH and 70 or 64, TOUCH and 70 or 64),
@@ -5320,68 +5388,81 @@ function Tab:AddAssetLogItem(item)
         ScaleType = Enum.ScaleType.Fit,
         Parent = previewHolder,
     })
+    -- Optional egg icon badge in the preview's corner (animal + the egg it came from).
+    if item.EggIcon then
+        create("ImageLabel", {
+            AnchorPoint = Vector2.new(1, 1),
+            Position = UDim2.new(1, 4, 1, 4),
+            Size = UDim2.fromOffset(TOUCH and 28 or 26, TOUCH and 28 or 26),
+            BackgroundTransparency = 1,
+            Image = imageAsset(item.EggIcon),
+            ScaleType = Enum.ScaleType.Fit,
+            ZIndex = 2,
+            Parent = previewHolder,
+        })
+    end
 
     local textLeft = TOUCH and 90 or 84
-    label({
-        Position = UDim2.fromOffset(textLeft, 11),
+    local nameLabel = label({
+        Position = UDim2.fromOffset(textLeft, 10),
         Size = UDim2.new(1, -(textLeft + 96), 0, 20),
         Text = tostring(item.Name or "Unknown"),
-        TextSize = 14,
+        TextSize = item.NameTextSize or 15,
+        FontFace = typeof(item.NameFontFace) == "Font" and item.NameFontFace or Fonts.Medium,
         TextTruncate = Enum.TextTruncate.AtEnd,
         Parent = row,
     })
-    local rarityChip = create("TextLabel", {
+    -- Detail line: rarity (+ mutations) in the rarity color, like the Farm Config cards.
+    local detailLabel = label({
+        Position = UDim2.fromOffset(textLeft, 33),
+        Size = UDim2.new(1, -(textLeft + 14), 0, 18),
+        Text = tostring(item.Details or item.Rarity or "Unknown"),
+        TextSize = item.DetailTextSize or 12,
+        FontFace = typeof(item.DetailFontFace) == "Font" and item.DetailFontFace or Fonts.Bold,
+        TextColor3 = typeof(item.RarityColor) == "Color3" and item.RarityColor or Theme.Muted,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        Parent = row,
+    })
+    -- Stats line (rich text): gen / weight / anything the caller formats.
+    label({
+        Position = UDim2.fromOffset(textLeft, 55),
+        Size = UDim2.new(1, -(textLeft + 14), 0, 18),
+        Text = type(item.Stats) == "string" and item.Stats ~= "" and item.Stats
+            or ('<font color="#5AFF82">$%s/s</font>   <font color="#FFD764">%s kg</font>'):format(compactNumber(item.Gen), tostring(item.Weight or "0.00")),
+        RichText = true,
+        TextSize = 12,
+        FontFace = typeof(item.DetailFontFace) == "Font" and item.DetailFontFace or Fonts.Bold,
+        TextColor3 = Theme.Text,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        Parent = row,
+    })
+    local function styleText(target, gradient, strokeSource)
+        if typeof(gradient) == "Instance" and gradient:IsA("UIGradient") then
+            gradient:Clone().Parent = target
+            target.TextColor3 = Color3.new(1, 1, 1)
+        end
+        if typeof(strokeSource) == "Instance" and strokeSource:IsA("UIStroke") then
+            strokeSource:Clone().Parent = target
+        end
+    end
+    pcall(styleText, nameLabel, item.NameGradient, item.NameStroke)
+    pcall(styleText, detailLabel, item.DetailGradient, item.DetailStroke)
+
+    -- Top-right chip: time / source text (defaults to the rarity name).
+    local chip = create("TextLabel", {
         AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, -10, 0, 11),
-        Size = UDim2.fromOffset(78, 22),
-        BackgroundColor3 = typeof(item.RarityColor) == "Color3" and item.RarityColor or Theme.Surface3,
+        Position = UDim2.new(1, -10, 0, 10),
+        Size = UDim2.fromOffset(82, 22),
+        BackgroundColor3 = Theme.Surface3,
         BorderSizePixel = 0,
-        Text = tostring(item.Rarity or "Unknown"),
+        Text = tostring(item.Chip or item.Rarity or ""),
         TextSize = 11,
-        TextColor3 = Theme.AccentDark,
-        FontFace = Fonts.Bold,
-        TextTruncate = Enum.TextTruncate.AtEnd,
-        Parent = row,
-    })
-    corner(rarityChip, UDim.new(0, 6))
-    label({
-        Position = UDim2.fromOffset(textLeft, 38),
-        Size = UDim2.fromOffset(34, 18),
-        Text = "Gen:",
-        TextSize = 12,
-        FontFace = Fonts.Bold,
         TextColor3 = Theme.Text,
-        Parent = row,
-    })
-    label({
-        Position = UDim2.fromOffset(textLeft + 36, 38),
-        Size = UDim2.new(1, -(textLeft + 46), 0, 18),
-        Text = compactNumber(item.Gen),
-        TextSize = 12,
         FontFace = Fonts.Bold,
-        TextColor3 = Theme.Success,
         TextTruncate = Enum.TextTruncate.AtEnd,
         Parent = row,
     })
-    label({
-        Position = UDim2.fromOffset(textLeft, 59),
-        Size = UDim2.fromOffset(30, 18),
-        Text = "KG:",
-        TextSize = 12,
-        FontFace = Fonts.Bold,
-        TextColor3 = Theme.Text,
-        Parent = row,
-    })
-    label({
-        Position = UDim2.fromOffset(textLeft + 32, 59),
-        Size = UDim2.new(1, -(textLeft + 42), 0, 18),
-        Text = tostring(item.Weight or "0.00"),
-        TextSize = 12,
-        FontFace = Fonts.Bold,
-        TextColor3 = Theme.Warning,
-        TextTruncate = Enum.TextTruncate.AtEnd,
-        Parent = row,
-    })
+    corner(chip, UDim.new(0, 6))
     return finishElement(self, {}, {}, row, "AssetLogItem")
 end
 
