@@ -2967,7 +2967,9 @@ function Window:_overControl(point)
 end
 
 function Window:_enableDrag()
-    local dragging = false
+    -- Only the touch that grabbed the window moves it (GetMouseLocation on mobile is the last touch of ANY finger).
+    local dragInput = nil
+    local touchPoint = nil
     local grabOffset = Vector2.zero
     local target = nil
 
@@ -2975,38 +2977,51 @@ function Window:_enableDrag()
         local root = self.Root
         return root.AbsolutePosition + root.AbsoluteSize * root.AnchorPoint - self.Gui.AbsolutePosition
     end
+    local function dragPoint()
+        if dragInput and dragInput.UserInputType == Enum.UserInputType.Touch then
+            return touchPoint or pointerPosition()
+        end
+        return pointerPosition()
+    end
 
     table.insert(self._connections, UserInputService.InputBegan:Connect(function(input)
-        if not isPress(input) then
+        if not isPress(input) or dragInput then
             return
         end
         if not self.Open or not self.Root.Visible then
             return
         end
-        local point = pointerPosition()
+        local point = input.UserInputType == Enum.UserInputType.Touch and Vector2.new(input.Position.X, input.Position.Y) or pointerPosition()
         if not pointInside(point, self.Body) or self:_overControl(point) then
             return
         end
-        dragging = true
+        dragInput, touchPoint = input, point
         grabOffset = point - centre()
     end))
 
-    table.insert(self._connections, UserInputService.InputEnded:Connect(function(input)
-        if not dragging then
-            return
-        end
-        if isPress(input) then
-            dragging = false
-            target = nil
-            self:_clampToScreen()
+    table.insert(self._connections, UserInputService.InputChanged:Connect(function(input)
+        if dragInput and input == dragInput and input.UserInputType == Enum.UserInputType.Touch then
+            touchPoint = Vector2.new(input.Position.X, input.Position.Y)
         end
     end))
 
-    table.insert(self._frameSteps, function(deltaTime)
-        if not dragging then
+    table.insert(self._connections, UserInputService.InputEnded:Connect(function(input)
+        if not dragInput or not isPress(input) then
             return
         end
-        target = pointerPosition() - grabOffset
+        if dragInput.UserInputType == Enum.UserInputType.Touch and input ~= dragInput then
+            return
+        end
+        dragInput, touchPoint = nil, nil
+        target = nil
+        self:_clampToScreen()
+    end))
+
+    table.insert(self._frameSteps, function(deltaTime)
+        if not dragInput then
+            return
+        end
+        target = dragPoint() - grabOffset
         local current = centre()
         local alpha = 1 - math.exp(-deltaTime * 45)
         local step = current:Lerp(target, alpha)
@@ -3388,41 +3403,68 @@ function Window:_createOpenButton(opts)
         tween(buttonScale, { Scale = 1 }, 0.2)
     end)
 
-    local dragging, moved = false, false
+    -- Drag follows only the touch (or mouse) that started it: on mobile GetMouseLocation is the LAST touch of any
+    -- finger, so a second finger on the screen made the icon jump between them.
+    local dragInput, moved = nil, false
     local grab = Vector2.zero
+    local function pointOf(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            return Vector2.new(input.Position.X, input.Position.Y)
+        end
+        return pointerPosition()
+    end
     button.InputBegan:Connect(function(input)
-        if isPress(input) then
-            dragging = true
+        if isPress(input) and not dragInput then
+            dragInput = input
             moved = false
-            grab = pointerPosition() - button.AbsolutePosition
+            grab = pointOf(input) - button.AbsolutePosition
             tween(buttonScale, { Scale = 0.92 }, 0.1)
         end
     end)
     table.insert(self._connections, UserInputService.InputChanged:Connect(function(input)
-        if not dragging then
+        if not dragInput or not isMove(input) then
             return
         end
-        if isMove(input) then
-            local point = pointerPosition() - grab - gui.AbsolutePosition
-            if (point - (button.AbsolutePosition - gui.AbsolutePosition)).Magnitude > 3 then
-                moved = true
-            end
-            button.AnchorPoint = Vector2.new(0, 0)
-            button.Position = UDim2.fromOffset(
-                math.clamp(point.X, 0, math.max(gui.AbsoluteSize.X - button.AbsoluteSize.X, 0)),
-                math.clamp(point.Y, 0, math.max(gui.AbsoluteSize.Y - button.AbsoluteSize.Y, 0))
-            )
+        -- Touch: the very same InputObject as the press; mouse: any mouse movement.
+        if dragInput.UserInputType == Enum.UserInputType.Touch and input ~= dragInput then
+            return
         end
+        if dragInput.UserInputType ~= Enum.UserInputType.Touch and input.UserInputType ~= Enum.UserInputType.MouseMovement then
+            return
+        end
+        local point = pointOf(input) - grab - gui.AbsolutePosition
+        if (point - (button.AbsolutePosition - gui.AbsolutePosition)).Magnitude > 3 then
+            moved = true
+        end
+        button.AnchorPoint = Vector2.new(0, 0)
+        button.Position = UDim2.fromOffset(
+            math.clamp(point.X, 0, math.max(gui.AbsoluteSize.X - button.AbsoluteSize.X, 0)),
+            math.clamp(point.Y, 0, math.max(gui.AbsoluteSize.Y - button.AbsoluteSize.Y, 0))
+        )
     end))
     table.insert(self._connections, UserInputService.InputEnded:Connect(function(input)
-        if dragging and isPress(input) then
-            dragging = false
-            tween(buttonScale, { Scale = 1 }, 0.15)
-            if not moved then
-                self:Toggle()
-            end
+        if not dragInput or not isPress(input) then
+            return
+        end
+        -- Another finger lifting does not end (or click) this drag.
+        if dragInput.UserInputType == Enum.UserInputType.Touch and input ~= dragInput then
+            return
+        end
+        dragInput = nil
+        tween(buttonScale, { Scale = 1 }, 0.15)
+        if not moved then
+            self:Toggle()
         end
     end))
+
+    -- Size from the screen: a bit bigger on phones, never tiny on small screens nor huge on big ones.
+    local function fit()
+        local screen = gui.AbsoluteSize
+        local side = math.clamp(math.floor(math.min(screen.X, screen.Y) * (TOUCH and 0.13 or 0.075)), 44, 66)
+        button.Size = UDim2.fromOffset(side, side)
+    end
+    fit()
+    table.insert(self._connections, gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit))
 end
 
 function Window:_enableResize(minSize)
